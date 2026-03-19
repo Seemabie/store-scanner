@@ -235,8 +235,23 @@ function lookup(raw){
   var dl=findDeal(c);
   if(!dl&&hit) dl=findDeal(hit[0]);
   if(hit){
-    found={u:hit[0],n:hit[1],dn:hit[2],d:DM[hit[2]]||hit[2],bp:hit[3],tx:hit[4],cp:hit[5],ac:hit[6]};
-    deal=dl?{n:dl[0],bp:dl[1],cp:dl[2]}:null;
+    var single={u:hit[0],n:hit[1],dn:hit[2],d:DM[hit[2]]||hit[2],bp:hit[3],tx:hit[4],cp:hit[5],ac:hit[6]};
+    var dealInfo=dl?{n:dl[0],bp:dl[1],cp:dl[2]}:null;
+    // Auto-detect: if the "regular" item name starts with "2 /" or "3 /" etc, it's actually the deal
+    // Swap them so single always shows the true single-item price
+    if(dealInfo && /^\d+\s*\//.test(single.n) && !/^\d+\s*\//.test(dealInfo.n)){
+      // Regular entry has deal name, deal entry has single name - swap
+      found={u:single.u,n:dealInfo.n,dn:single.dn,d:single.d,bp:dealInfo.bp,tx:single.tx,cp:dealInfo.cp,ac:single.ac};
+      deal={n:single.n,bp:single.bp,cp:single.cp};
+    } else if(dealInfo && !/^\d+\s*\//.test(single.n) && /^\d+\s*\//.test(dealInfo.n)){
+      // Correct order already - regular is single, deal is deal
+      found=single;
+      deal=dealInfo;
+    } else {
+      // No "2 /" pattern detected, keep as-is
+      found=single;
+      deal=dealInfo;
+    }
     showForm=false;editing=false;
   } else {
     found=null;deal=null;showForm=true;formUpc=c;
@@ -430,16 +445,27 @@ function rFound(){
       h+='<div class="ib"><div class="il">Tax</div><div class="iv'+(r.tx?' ye':'')+'">'+(r.tx?'Yes (6%)':'No')+'</div></div>';
       h+='</div>';
     }
-    h+='<button class="bt bbl" style="margin-top:12px" onclick="startEdit()">\u270F\uFE0F Edit Prices</button>';
+    h+='<button class="bt bbl" style="margin-top:12px" onclick="startEdit()">\u270F\uFE0F Edit Single Item Prices</button>';
   } else {
     h+='<div class="ig" style="margin-bottom:10px">';
     h+='<div class="ib"><div class="il">Department</div><div class="iv sm2">'+r.d+'</div></div>';
     h+='<div class="ib"><div class="il">Tax</div><div class="iv'+(r.tx?' ye':'')+'">'+(r.tx?'Yes (6%)':'No')+'</div></div>';
     h+='</div>';
-    h+='<div class="pr" style="margin-bottom:10px">';
+    h+='<div style="background:var(--greenbg);border:1.5px solid var(--greenbd);border-radius:14px;padding:14px 16px;margin-bottom:10px">';
+    h+='<div style="font-size:13px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">\u270F\uFE0F Editing Single Item Price</div>';
+    h+='<div class="pr">';
     h+='<div class="fd" style="margin-bottom:0"><label>Base Price</label><input class="mo" type="number" id="eBP" step="0.01" value="'+r.bp.toFixed(2)+'" inputmode="decimal" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'eCP\').focus();}"/></div>';
     h+='<div class="fd" style="margin-bottom:0"><label>Customer Pays</label><input class="mo" type="number" id="eCP" step="0.01" value="'+r.cp.toFixed(2)+'" inputmode="decimal" onkeydown="if(event.key===\'Enter\'){event.preventDefault();saveEdit();}"/></div>';
-    h+='</div>';
+    h+='</div></div>';
+    if(deal){
+      h+='<div class="deal-card" style="margin-bottom:10px">';
+      h+='<div class="deal-head">\u2B50 Deal Price (not editable)</div>';
+      h+='<div style="font-size:15px;font-weight:700;margin-bottom:8px">'+deal.n+'</div>';
+      h+='<div class="deal-grid">';
+      h+='<div class="deal-box"><div class="il">Deal Base</div><div class="iv or">$'+deal.bp.toFixed(2)+'</div></div>';
+      h+='<div class="deal-box"><div class="il">Deal Pays</div><div class="iv or">$'+deal.cp.toFixed(2)+'</div></div>';
+      h+='</div></div>';
+    }
     h+='<div style="display:flex;gap:8px">';
     h+='<button class="bt bg" style="flex:1" onclick="saveEdit()">Save Changes</button>';
     h+='<button class="bt bs" style="flex:0 0 auto;width:auto;padding:16px" onclick="editing=false;render()">Cancel</button>';
