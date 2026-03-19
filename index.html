@@ -201,14 +201,14 @@ var BIC='<svg width="20" height="20" fill="none" stroke="currentColor" stroke-wi
 var GEAR='<svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><circle cx="12" cy="12" r="3"/></svg>';
 
 var tab='scan',found=null,deal=null,showForm=false,formUpc='',editing=false,
-    entries=[],modified=[],codes=[],sheetUrl='',syncing=false,
+    entries=[],modified=[],codes=[],sheetUrl='https://script.google.com/macros/s/AKfycbwiqhxO0OEM8zBmln8OQfqFYIsxwvH6KHtep7m5C3dTCNhXKxOPS33E2bNJJwU6r02dRA/exec',syncing=false,
     toastMsg=null,toastCl='gr',toastT=null;
 
 function load(){
   try{entries=JSON.parse(localStorage.getItem('pc_entries')||'[]');}catch(x){}
   try{modified=JSON.parse(localStorage.getItem('pc_modified')||'[]');}catch(x){}
   try{codes=JSON.parse(localStorage.getItem('pc_codes')||'[]');}catch(x){}
-  sheetUrl=localStorage.getItem('pc_sheet_url')||'';
+  
   render();
 }
 function saveE(){localStorage.setItem('pc_entries',JSON.stringify(entries));}
@@ -231,7 +231,9 @@ function findDeal(c){
 function lookup(raw){
   var c=raw.replace(/\D/g,'');if(!c)return;
   var hit=findDb(c);
+  // Try finding deal with scanned code AND with the stored UPC from database
   var dl=findDeal(c);
+  if(!dl&&hit) dl=findDeal(hit[0]);
   if(hit){
     found={u:hit[0],n:hit[1],dn:hit[2],d:DM[hit[2]]||hit[2],bp:hit[3],tx:hit[4],cp:hit[5],ac:hit[6]};
     deal=dl?{n:dl[0],bp:dl[1],cp:dl[2]}:null;
@@ -320,8 +322,7 @@ function exportCodes(){
 }
 
 function syncToSheets(type){
-  if(!sheetUrl){toast('Set up Sheets URL in Settings first','rd');tab='settings';render();return;}
-  if(syncing)return;syncing=true;render();toast('Syncing...','bl');
+  if(syncing)return;syncing=true;render();toast('Saving to Google Sheets...','bl');
   var payload;
   if(type==='entries'){
     var allItems=entries.slice();
@@ -389,12 +390,34 @@ function rFound(){
   h+='<div class="fn">'+r.n+'</div><div class="fuu">'+r.u+'</div>';
 
   if(!editing){
-    h+='<div class="ig">';
-    h+='<div class="ib"><div class="il">Base Price</div><div class="iv gr">$'+r.bp.toFixed(2)+'</div></div>';
-    h+='<div class="ib"><div class="il">Customer Pays</div><div class="iv gr">$'+r.cp.toFixed(2)+'</div></div>';
-    h+='<div class="ib"><div class="il">Department</div><div class="iv sm2">'+r.d+'</div></div>';
-    h+='<div class="ib"><div class="il">Tax</div><div class="iv'+(r.tx?' ye':'')+'">'+(r.tx?'Yes (6%)':'No')+'</div></div>';
-    h+='</div>';
+    if(deal){
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">';
+      h+='<div class="ib"><div class="il">Department</div><div class="iv sm2">'+r.d+'</div></div>';
+      h+='<div class="ib"><div class="il">Tax</div><div class="iv'+(r.tx?' ye':'')+'">'+(r.tx?'Yes (6%)':'No')+'</div></div>';
+      h+='</div>';
+      
+      h+='<div style="background:var(--greenbg);border:1.5px solid var(--greenbd);border-radius:14px;padding:14px 16px;margin-bottom:8px">';
+      h+='<div style="font-size:13px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">\u2460 Single Item Price</div>';
+      h+='<div class="ig">';
+      h+='<div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid var(--greenbd)"><div class="il">Base Price</div><div class="iv gr">$'+r.bp.toFixed(2)+'</div></div>';
+      h+='<div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid var(--greenbd)"><div class="il">Customer Pays</div><div class="iv gr">$'+r.cp.toFixed(2)+'</div></div>';
+      h+='</div></div>';
+      
+      h+='<div class="deal-card">';
+      h+='<div class="deal-head">\u2B50 Deal Price</div>';
+      h+='<div style="font-size:15px;font-weight:700;margin-bottom:8px">'+deal.n+'</div>';
+      h+='<div class="deal-grid">';
+      h+='<div class="deal-box"><div class="il">Deal Base</div><div class="iv or">$'+deal.bp.toFixed(2)+'</div></div>';
+      h+='<div class="deal-box"><div class="il">Deal Pays</div><div class="iv or">$'+deal.cp.toFixed(2)+'</div></div>';
+      h+='</div></div>';
+    } else {
+      h+='<div class="ig">';
+      h+='<div class="ib"><div class="il">Base Price</div><div class="iv gr">$'+r.bp.toFixed(2)+'</div></div>';
+      h+='<div class="ib"><div class="il">Customer Pays</div><div class="iv gr">$'+r.cp.toFixed(2)+'</div></div>';
+      h+='<div class="ib"><div class="il">Department</div><div class="iv sm2">'+r.d+'</div></div>';
+      h+='<div class="ib"><div class="il">Tax</div><div class="iv'+(r.tx?' ye':'')+'">'+(r.tx?'Yes (6%)':'No')+'</div></div>';
+      h+='</div>';
+    }
     h+='<button class="bt bbl" style="margin-top:12px" onclick="startEdit()">\u270F\uFE0F Edit Prices</button>';
   } else {
     h+='<div class="ig" style="margin-bottom:10px">';
@@ -409,16 +432,6 @@ function rFound(){
     h+='<button class="bt bg" style="flex:1" onclick="saveEdit()">Save Changes</button>';
     h+='<button class="bt bs" style="flex:0 0 auto;width:auto;padding:16px" onclick="editing=false;render()">Cancel</button>';
     h+='</div>';
-  }
-
-  if(deal){
-    h+='<div class="deal-card">';
-    h+='<div class="deal-head">\u2B50 Deal Price</div>';
-    h+='<div style="font-size:15px;font-weight:700;margin-bottom:8px">'+deal.n+'</div>';
-    h+='<div class="deal-grid">';
-    h+='<div class="deal-box"><div class="il">Deal Base</div><div class="iv or">$'+deal.bp.toFixed(2)+'</div></div>';
-    h+='<div class="deal-box"><div class="il">Deal Pays</div><div class="iv or">$'+deal.cp.toFixed(2)+'</div></div>';
-    h+='</div></div>';
   }
 
   if(!editing){
@@ -451,8 +464,8 @@ function rList(){
   var hasData=entries.length||modified.length;
   if(!hasData) return '<div class="em"><p>No new entries or changes yet.<br>Scan items to build your list.</p></div>';
   var h='<div class="er">';
-  h+='<button class="bt bg" onclick="exportCSV()">Export All CSV</button>';
-  if(sheetUrl) h+='<button class="bt bbl" style="flex:0 0 auto;width:auto;padding:13px 14px;font-size:13px" onclick="syncToSheets(\'entries\')"'+(syncing?' disabled':'')+'>'+(syncing?'Syncing...':'Sync')+'</button>';
+  h+='<button class="bt bg" onclick="exportCSV()">Export CSV</button>';
+  h+='<button class="bt bbl" style="flex:1" onclick="syncToSheets(\'entries\')"'+(syncing?' disabled':'')+'>'+(syncing?'Saving...':'\u2601 Save to Google Sheets')+'</button>';
   h+='</div>';
 
   if(modified.length){
@@ -478,7 +491,7 @@ function rList(){
     if(entries.length>1) h+='<button class="bt br" style="margin:6px 0 10px;padding:10px;font-size:13px" onclick="clearEntries()">Clear All New Entries</button>';
   }
 
-  h+='<p class="nt">Data saved in browser. Export CSV for POS import'+(sheetUrl?' or sync to Sheets.':'.')+'</p>';
+  h+='<p class="nt">Data saved in browser. Export CSV or Save to Google Sheets for your POS import.</p>';
   return h;
 }
 
@@ -490,7 +503,7 @@ function rColl(){
   if(!codes.length) return h+'<div class="em"><p>Scan barcodes rapidly here.<br>Each one saves instantly.</p></div>';
   h+='<div class="er">';
   h+='<button class="bt bv" onclick="exportCodes()">Export CSV</button>';
-  if(sheetUrl) h+='<button class="bt bbl" style="flex:0 0 auto;width:auto;padding:13px 14px;font-size:13px" onclick="syncToSheets(\'codes\')"'+(syncing?' disabled':'')+'>'+(syncing?'Syncing...':'Sync')+'</button>';
+  h+='<button class="bt bbl" style="flex:1" onclick="syncToSheets(\'codes\')"'+(syncing?' disabled':'')+'>'+(syncing?'Saving...':'\u2601 Save to Google Sheets')+'</button>';
   h+='<button class="bt br" style="flex:0 0 auto;width:auto;padding:13px 14px" onclick="clearCodes()">Clear</button>';
   h+='</div>';
   h+='<div class="sc"><span class="st">Collected</span><div class="ln"></div><span class="ct ctv">'+codes.length+'</span></div>';
@@ -508,21 +521,9 @@ function rColl(){
 function rSettings(){
   var h='<div class="set-card">';
   h+='<div class="set-title">Google Sheets Sync</div>';
-  if(sheetUrl) h+='<span class="set-status set-ok">\u2713 Connected</span>';
-  else h+='<span class="set-status set-no">Not set up</span>';
-  h+='<div class="set-desc">Paste your Google Apps Script URL to enable one-tap sync.</div>';
-  h+='<div class="fd"><label>Apps Script URL</label>';
-  h+='<div class="url-row"><input type="url" id="sheetUrlInput" value="'+esc(sheetUrl)+'" placeholder="https://script.google.com/macros/s/..."/>';
-  h+='<button class="bt bg" onclick="saveSheetUrl()">Save</button></div></div></div>';
-
-  h+='<div class="set-card"><div class="set-title">Setup Guide</div>';
-  h+='<div class="set-desc" style="margin-bottom:0">';
-  h+='1. Open <strong>Google Sheets</strong>, create a new blank spreadsheet<br><br>';
-  h+='2. Click <strong>Extensions \u2192 Apps Script</strong><br><br>';
-  h+='3. Delete the default code, paste the PriceCheck script<br><br>';
-  h+='4. Click <strong>Deploy \u2192 New deployment</strong><br><br>';
-  h+='5. Type: <strong>Web app</strong>, Access: <strong>Anyone</strong>, click Deploy<br><br>';
-  h+='6. Copy the URL and paste it above</div></div>';
+  h+='<span class="set-status set-ok">\u2713 Connected</span>';
+  h+='<div class="set-desc">Your Google Sheet is linked. Use the "Save to Google Sheets" button on the List or Collect tabs to push your data anytime.</div>';
+  h+='</div>';
 
   h+='<div class="set-card"><div class="set-title">Database</div>';
   h+='<div class="set-desc" style="margin-bottom:0">'+D.length.toLocaleString()+' regular items \u00b7 '+Object.keys(DL).length+' deals \u00b7 '+DEPTS.length+' departments<br>';
