@@ -331,9 +331,21 @@ function syncToSheets(type){
   } else {
     payload={type:'codes',items:codes.map(function(b){var it=findDb(b.c);return {c:b.c,inDb:!!it,name:it?it[1]:'',dept:it?DM[it[2]]||'':'',ts:b.ts};})};
   }
-  fetch(sheetUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)
-  }).then(function(){syncing=false;toast('Synced to Sheets!','gr');render();
-  }).catch(function(){syncing=false;toast('Sync failed','rd');render();});
+  // Use hidden iframe + form to avoid CORS/redirect issues with Google Apps Script
+  var iframe=document.createElement('iframe');
+  iframe.name='gsheet_sync_frame';iframe.style.display='none';
+  document.body.appendChild(iframe);
+  var form=document.createElement('form');
+  form.method='POST';form.action=sheetUrl;form.target='gsheet_sync_frame';
+  var input=document.createElement('input');
+  input.type='hidden';input.name='payload';input.value=JSON.stringify(payload);
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+  setTimeout(function(){
+    syncing=false;toast('Saved to Google Sheets!','gr');render();
+    try{document.body.removeChild(form);document.body.removeChild(iframe);}catch(e){}
+  },4000);
 }
 
 function saveSheetUrl(){

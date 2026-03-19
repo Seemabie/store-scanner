@@ -1,10 +1,13 @@
 // ============================================
 // PASTE THIS ENTIRE SCRIPT INTO GOOGLE APPS SCRIPT
+// Replace the old code completely with this
 // ============================================
 
 function doPost(e) {
   try {
-    var data = JSON.parse(e.postData.contents);
+    // Handle both form submission and raw POST
+    var rawData = e.parameter.payload || e.postData.contents;
+    var data = JSON.parse(rawData);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var type = data.type; // 'entries' or 'codes'
     
@@ -48,7 +51,7 @@ function doPost(e) {
   }
 }
 
-// This handles the preflight request from browsers
+// This handles GET requests
 function doGet(e) {
   return ContentService
     .createTextOutput(JSON.stringify({status: 'ok', message: 'PriceCheck sync endpoint ready'}))
