@@ -266,14 +266,36 @@ function startEdit(){editing=true;render();
 function saveEdit(){
   var bp=parseFloat(document.getElementById('eBP').value)||found.bp;
   var cp=parseFloat(document.getElementById('eCP').value)||found.cp;
-  if(bp===found.bp&&cp===found.cp){editing=false;render();return;}
-  var mod={u:found.u,n:found.n,dn:found.dn,d:found.d,
-    oldBp:found.bp,oldCp:found.cp,newBp:bp,newCp:cp,
-    tx:found.tx,ac:found.ac,ts:Date.now()};
-  var existing=modified.findIndex(function(m){return m.u===mod.u;});
-  if(existing>=0) modified[existing]=mod; else modified.unshift(mod);
+  var singleChanged=bp!==found.bp||cp!==found.cp;
+  
+  var dealChanged=false;var dBp=0;var dCp=0;
+  if(deal){
+    dBp=parseFloat(document.getElementById('eDBP').value)||deal.bp;
+    dCp=parseFloat(document.getElementById('eDCP').value)||deal.cp;
+    dealChanged=dBp!==deal.bp||dCp!==deal.cp;
+  }
+  
+  if(!singleChanged&&!dealChanged){editing=false;render();return;}
+  
+  if(singleChanged){
+    var mod={u:found.u,n:found.n,dn:found.dn,d:found.d,
+      oldBp:found.bp,oldCp:found.cp,newBp:bp,newCp:cp,
+      tx:found.tx,ac:found.ac,ts:Date.now(),editType:'single'};
+    var existing=modified.findIndex(function(m){return m.u===mod.u&&m.editType==='single';});
+    if(existing>=0) modified[existing]=mod; else modified.unshift(mod);
+    found.bp=bp;found.cp=cp;
+  }
+  
+  if(dealChanged&&deal){
+    var dmod={u:found.u,n:deal.n,dn:found.dn,d:found.d,
+      oldBp:deal.bp,oldCp:deal.cp,newBp:dBp,newCp:dCp,
+      tx:found.tx,ac:found.ac,ts:Date.now(),editType:'deal'};
+    var dexisting=modified.findIndex(function(m){return m.u===dmod.u&&m.editType==='deal';});
+    if(dexisting>=0) modified[dexisting]=dmod; else modified.unshift(dmod);
+    deal.bp=dBp;deal.cp=dCp;
+  }
+  
   saveM();
-  found.bp=bp;found.cp=cp;
   editing=false;
   toast('Price updated','bl');render();
 }
@@ -302,6 +324,7 @@ function addEntry(){
 function rmEntry(u){entries=entries.filter(function(e){return e.u!==u;});saveE();render();}
 function clearEntries(){if(confirm('Clear all new entries?')){entries=[];saveE();render();}}
 function rmMod(u){modified=modified.filter(function(m){return m.u!==u;});saveM();render();}
+function rmModIdx(idx){modified.splice(idx,1);saveM();render();}
 function clearMods(){if(confirm('Clear all modifications?')){modified=[];saveM();render();}}
 
 function exportCSV(){
@@ -313,8 +336,8 @@ function exportCSV(){
   }
   if(modified.length){
     if(csv)csv+='\n';
-    csv+='=== MODIFIED PRICES ===\nBarcode (UPC),Item Name,Dept #,Department,Old Base Price,New Base Price,Old Customer Pays,New Customer Pays\n';
-    modified.forEach(function(m){csv+='"'+m.u+'","'+m.n.replace(/"/g,'""')+'","'+m.dn+'","'+(m.d||'')+'","'+m.oldBp+'","'+m.newBp+'","'+m.oldCp+'","'+m.newCp+'"\n';});
+    csv+='=== MODIFIED PRICES ===\nBarcode (UPC),Item Name,Type,Dept #,Department,Old Base Price,New Base Price,Old Customer Pays,New Customer Pays\n';
+    modified.forEach(function(m){csv+='"'+m.u+'","'+m.n.replace(/"/g,'""')+'","'+(m.editType==='deal'?'Deal':'Single')+'","'+m.dn+'","'+(m.d||'')+'","'+m.oldBp+'","'+m.newBp+'","'+m.oldCp+'","'+m.newCp+'"\n';});
   }
   dlFile(csv,'pricecheck-export-'+ds()+'.csv');toast('CSV downloaded','gr');
 }
@@ -445,25 +468,25 @@ function rFound(){
       h+='<div class="ib"><div class="il">Tax</div><div class="iv'+(r.tx?' ye':'')+'">'+(r.tx?'Yes (6%)':'No')+'</div></div>';
       h+='</div>';
     }
-    h+='<button class="bt bbl" style="margin-top:12px" onclick="startEdit()">\u270F\uFE0F Edit Single Item Prices</button>';
+    h+='<button class="bt bbl" style="margin-top:12px" onclick="startEdit()">\u270F\uFE0F Edit Prices</button>';
   } else {
     h+='<div class="ig" style="margin-bottom:10px">';
     h+='<div class="ib"><div class="il">Department</div><div class="iv sm2">'+r.d+'</div></div>';
     h+='<div class="ib"><div class="il">Tax</div><div class="iv'+(r.tx?' ye':'')+'">'+(r.tx?'Yes (6%)':'No')+'</div></div>';
     h+='</div>';
     h+='<div style="background:var(--greenbg);border:1.5px solid var(--greenbd);border-radius:14px;padding:14px 16px;margin-bottom:10px">';
-    h+='<div style="font-size:13px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">\u270F\uFE0F Editing Single Item Price</div>';
+    h+='<div style="font-size:13px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">\u270F\uFE0F Single Item Price</div>';
     h+='<div class="pr">';
     h+='<div class="fd" style="margin-bottom:0"><label>Base Price</label><input class="mo" type="number" id="eBP" step="0.01" value="'+r.bp.toFixed(2)+'" inputmode="decimal" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'eCP\').focus();}"/></div>';
-    h+='<div class="fd" style="margin-bottom:0"><label>Customer Pays</label><input class="mo" type="number" id="eCP" step="0.01" value="'+r.cp.toFixed(2)+'" inputmode="decimal" onkeydown="if(event.key===\'Enter\'){event.preventDefault();saveEdit();}"/></div>';
+    h+='<div class="fd" style="margin-bottom:0"><label>Customer Pays</label><input class="mo" type="number" id="eCP" step="0.01" value="'+r.cp.toFixed(2)+'" inputmode="decimal" onkeydown="if(event.key===\'Enter\'){event.preventDefault();'+(deal?'document.getElementById(\'eDBP\').focus();':'saveEdit();')+'}" /></div>';
     h+='</div></div>';
     if(deal){
-      h+='<div class="deal-card" style="margin-bottom:10px">';
-      h+='<div class="deal-head">\u2B50 Deal Price (not editable)</div>';
-      h+='<div style="font-size:15px;font-weight:700;margin-bottom:8px">'+deal.n+'</div>';
-      h+='<div class="deal-grid">';
-      h+='<div class="deal-box"><div class="il">Deal Base</div><div class="iv or">$'+deal.bp.toFixed(2)+'</div></div>';
-      h+='<div class="deal-box"><div class="il">Deal Pays</div><div class="iv or">$'+deal.cp.toFixed(2)+'</div></div>';
+      h+='<div style="background:var(--orangebg);border:1.5px solid var(--orangebd);border-radius:14px;padding:14px 16px;margin-bottom:10px">';
+      h+='<div style="font-size:13px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">\u270F\uFE0F Deal Price</div>';
+      h+='<div style="font-size:14px;font-weight:700;margin-bottom:8px">'+deal.n+'</div>';
+      h+='<div class="pr">';
+      h+='<div class="fd" style="margin-bottom:0"><label>Deal Base</label><input class="mo" type="number" id="eDBP" step="0.01" value="'+deal.bp.toFixed(2)+'" inputmode="decimal" style="border-color:var(--orangebd)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'eDCP\').focus();}"/></div>';
+      h+='<div class="fd" style="margin-bottom:0"><label>Deal Pays</label><input class="mo" type="number" id="eDCP" step="0.01" value="'+deal.cp.toFixed(2)+'" inputmode="decimal" style="border-color:var(--orangebd)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();saveEdit();}"/></div>';
       h+='</div></div>';
     }
     h+='<div style="display:flex;gap:8px">';
@@ -508,11 +531,14 @@ function rList(){
 
   if(modified.length){
     h+='<div class="sc"><span class="st">\u270F\uFE0F Modified Prices</span><div class="ln"></div><span class="ct" style="background:var(--blue);color:#fff">'+modified.length+'</span></div>';
-    modified.forEach(function(m){
-      h+='<div class="li"><div class="lb"><div class="lm">'+esc(m.n)+'<span class="tg2 tm">EDITED</span></div>';
+    modified.forEach(function(m,idx){
+      var isDeal=m.editType==='deal';
+      h+='<div class="li"><div class="lb"><div class="lm">'+esc(m.n);
+      h+=isDeal?'<span class="tg2" style="background:var(--orangebg);color:var(--orange)">DEAL</span>':'<span class="tg2 tm">SINGLE</span>';
+      h+='</div>';
       h+='<div class="ls">'+m.u+' \u00b7 $'+m.oldCp.toFixed(2)+' \u2192 $'+m.newCp.toFixed(2)+'</div></div>';
       h+='<div class="lp">$'+m.newCp.toFixed(2)+'</div>';
-      h+='<button class="lx" onclick="rmMod(\''+m.u+'\')">\u00d7</button></div>';
+      h+='<button class="lx" onclick="rmModIdx('+idx+')">\u00d7</button></div>';
     });
     if(modified.length>1) h+='<button class="bt br" style="margin:6px 0 10px;padding:10px;font-size:13px" onclick="clearMods()">Clear All Modifications</button>';
   }
